@@ -1,0 +1,20 @@
+demomaking
+fichiers audios recommandé: midi, mod (mp3 trop lourd)
+
+projet: démo (executable) de -64ko
+
+
+VAO: Vertex Array Objects
+Tableau des sommets
+
+VBO: Vertex Buffer Objects
+
+
+dans GL4D:
+gl4dLookAtf (caméra)
+
+
+
+exemple: dans repo GL4d sc_02_01_shadedVAOTriangle*
+question dans une version solutionnée dans la version suivante
+
