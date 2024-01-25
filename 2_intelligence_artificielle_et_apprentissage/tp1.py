@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+ALLOW_PRINT_DEBUG = False
 
 
 
@@ -30,10 +31,9 @@ class Point:
 
     @staticmethod
     # return 2 coords set where one has all values as the minimum existing, in points, and the other with the maximum.
-    #... WIP
     def min_max(nb_coords, points: list):
-        min = points[0].coords
-        max = points[0].coords
+        min = points[0].coords.copy()
+        max = points[0].coords.copy()
         
         for point in points:
             for i, val in enumerate(point.coords):
@@ -42,7 +42,8 @@ class Point:
                 if val > max[i]:
                     max[i] = val
         
-        print(min, max)
+        if ALLOW_PRINT_DEBUG:
+            print(f"mix/max possible coords set:\n{min}\n{max}")
         return min, max
 
     
@@ -138,16 +139,16 @@ def extract_datas() -> dict:
         
 
 
-#... WIP -> find min max for each coords for low and high parameters
 def create_centers(nb, datas: list[Point]) -> list[Cluster]:
     centers: list[Point] = []
-    # min, max = Point.min_max(len(datas[0].coords), datas)
+    min, max = Point.min_max(len(datas[0].coords), datas)
 
     for i in range(nb):
         randoms_coords = []
         for j in range(len(datas[0].coords)):
-            r = list(np.random.default_rng().integers(low=0, high=10, size=1))[0]
-            randoms_coords .append(r)
+            #... WIP. r must be a float value
+            r = np.random.default_rng().integers(low=min[j], high=max[j], size=1)
+            randoms_coords.append(r)
         center = Cluster(i+1, randoms_coords)
         centers.append(center)
     return centers
@@ -162,7 +163,6 @@ def assign_datas_to_clusters(datas, clusters) -> bool:
         cluster.nb_points = 0
 
     for data in datas:
-        #print(f"before: {data}")
         min_dist = -1
         nearest_cluster = None
        
@@ -176,7 +176,6 @@ def assign_datas_to_clusters(datas, clusters) -> bool:
         temp = data.update_cluster(nearest_cluster.id)
         if temp:
             a_data_changed_of_cluster = temp
-        #print(f" after: {data}")
     
     return a_data_changed_of_cluster
 
@@ -207,17 +206,23 @@ def update_clusters_coords(datas: list[Point], clusters: list[Cluster]):
 
 def algo(datas: list[Point], nb_clusters: int):
     centers:list[Cluster] = create_centers(nb_clusters, datas)
+
+    #debug
+    plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="black", s=100)
+    plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="yellow", s=50)
+
         
     loop = 0
     while True:
         loop += 1
-        print(f"loop {loop}")
-        for center in centers:
-            print(center)
+        if ALLOW_PRINT_DEBUG:
+            print(f"loop {loop}")
+            for center in centers:
+                print(center)
 
         a_data_changed_of_cluster = assign_datas_to_clusters(datas, centers)
-        # ...WIP. Update clusters coords. Check a_data_changed_of_cluster, break if False.
         update_clusters_coords(datas, centers)
+
         if not a_data_changed_of_cluster:
             break
         
@@ -230,11 +235,6 @@ def algo(datas: list[Point], nb_clusters: int):
 
 def main():
     datas:list[Flower] = extract_datas()
-    
-    
-    #for i, point in enumerate(datas, start=1):
-    #    print(i, point)
-    
     centers: list[Cluster] = algo(datas, 3)
 
     #AFFICHAGE
