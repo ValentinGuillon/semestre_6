@@ -3,10 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-ALLOW_PRINT_DEBUG = False
+K = 5 #max 10 (for the color)
+ALLOW_PRINT_DEBUG = True
+WITH_GRAPH = False
 
 
-
+#describe a point with any number of coordinates
 class Point:
     def __init__(self, coords: list[float]):
         self.coords = coords
@@ -36,14 +38,16 @@ class Point:
         max = points[0].coords.copy()
         
         for point in points:
+            if len(point.coords) != nb_coords:
+                #raise error
+                print("error.\nIn Point.min_max().\nSome points have different coordinates number.")
+
             for i, val in enumerate(point.coords):
                 if val < min[i]:
                     min[i] = val
                 if val > max[i]:
                     max[i] = val
-        
-        if ALLOW_PRINT_DEBUG:
-            print(f"mix/max possible coords set:\n{min}\n{max}")
+
         return min, max
 
     
@@ -51,7 +55,7 @@ class Point:
         nb_coords = len(self.coords)
         other_coords = other_point.coords
         if len(other_coords) != nb_coords:
-            print("error, in dist() in Point.\n Points has differents coordinates number.")
+            print("error, in dist() in Point.\n Points has different coordinates number.")
         
         squared = []
         for i in range(nb_coords):
@@ -59,15 +63,15 @@ class Point:
             squared.append(x)
         
         total = 0
-        for i in range(nb_coords):
-            total += squared[i]
+        for nb in squared:
+            total += nb
 
         dist = np.sqrt(total)
         return dist
     
         
 
-
+#Coordinates set associate with a ummutable group, and a variable cluster
 class Flower(Point):
     def __init__(self, group: int, coords: list[int]):
         super().__init__(coords)
@@ -87,6 +91,7 @@ class Flower(Point):
         return False
 
 
+#Coordinates set associate with a immutable id, and a variable nb of point set to this cluster
 class Cluster(Point):
     def __init__(self, id: int, coords: list[int]):
         super().__init__(coords)
@@ -201,41 +206,119 @@ def update_clusters_coords(datas: list[Point], clusters: list[Cluster]):
 
 
 
+# return the proportion of the most prensent group if the cluster
+def cluster_purity(cluster_id: int, cluster_size: int, datas: list[Flower]) -> float:
+    group_concentration = {} #key=Flower.group, value=occurence in datas
+
+    for point in datas:
+        if point.cluster != cluster_id:
+            continue
+
+        group = point.group
+        if group not in group_concentration.keys():
+            group_concentration[group] = 1
+        else:
+            group_concentration[group] += 1
+
+    max = 0
+    for key, value in group_concentration.items():
+        if value > max:
+            max = group_concentration[key]
+    
+    if max == 0:
+        return 0
+    return (max / cluster_size) *100
 
 
 
-def algo(datas: list[Point], nb_clusters: int):
-    centers:list[Cluster] = create_centers(nb_clusters, datas)
 
-    #debug
-    plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="black", s=100)
-    plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="yellow", s=50)
 
-        
+def global_purity(clusters: list[Cluster], datas: list[Flower]) -> float:
+    purity = 0
+
+    for cluster in clusters:
+        temp = cluster_purity(cluster.id, cluster.nb_points, datas)
+        if ALLOW_PRINT_DEBUG:
+            print(f"cluster id: {cluster.id}, purity= {temp}%.")
+        purity += temp
+    
+    return purity / len(clusters)
+
+
+
+
+
+
+def algo(clusters: list[Cluster], datas: list[Point]):
     loop = 0
     while True:
         loop += 1
-        if ALLOW_PRINT_DEBUG:
-            print(f"loop {loop}")
-            for center in centers:
-                print(center)
 
-        a_data_changed_of_cluster = assign_datas_to_clusters(datas, centers)
-        update_clusters_coords(datas, centers)
+        a_data_changed_of_cluster = assign_datas_to_clusters(datas, clusters)
+        update_clusters_coords(datas, clusters)
 
         if not a_data_changed_of_cluster:
             break
-        
-    return centers
 
     
+def found_better_k(datas: list[Point], k_max: int):
+    purities = {}
+    clusters = []
+
+    for i in range(k_max):
+        if i < 1:
+            continue
+
+        average_purity = 0
+        for j in range(100):
+            clusters.clear()
+            clusters = create_centers(i, datas)
+            algo(clusters, datas)
+            purity = global_purity(clusters, datas)
+            average_purity += purity
+            print(f"test {j}. nb clusters = {i}, purity = {purity}")
+
+        average_purity /= 100
+        purities[i] = average_purity
+        print(f"nb clusters = {i}, average purity = {average_purity}")
+
+    best = 0
+    greater = 0
+    for key, value in purities.items():
+        if ALLOW_PRINT_DEBUG:
+            print(f"k={key}, purity={value}.")
+        if value > greater:
+            greater = value
+            best = key
+
+    return best
 
 
 
 
 def main():
     datas:list[Flower] = extract_datas()
-    centers: list[Cluster] = algo(datas, 3)
+
+    if not WITH_GRAPH:
+        better_k = found_better_k(datas, K)
+        print(f"Better nb of clusters (greater purity): {better_k}")
+        return
+
+
+    #WITH GRAPH (algo is running only one time)
+    centers:list[Cluster] = create_centers(K, datas)
+
+    # clusters' center at the start
+    plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="black", s=100)
+    plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="yellow", s=50)
+
+    algo(centers, datas)
+
+    purity = global_purity(centers, datas)
+    if ALLOW_PRINT_DEBUG:
+        print(f"Global purity = {purity}.")
+
+
 
     #AFFICHAGE
 
@@ -249,12 +332,10 @@ def main():
             datas_sorted_by_cluster[cluster_id].append(point)
 
 
-
     print("\nExternal color: cluster\nInternal color: flower group\n!! Dot black+yellow = cluster's center")
            
 
-
-    colors = ["red", "green", "blue", "yellow"]
+    colors = ["red", "green", "blue", "yellow", "pink", "orange", "purple", "beige", "brown", "gray"]
     i = 0
     
     #flower
@@ -269,10 +350,6 @@ def main():
         plt.scatter([point.coords[0]], [point.coords[1]], color=colors_flowers[point.group], s=5)
     #plt.scatter([point.coords[0] for point in datas], [point.coords[1] for point in datas], color=colors[i], s=5)
     
-
-
-
-
 
     #clusters' center
     plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="black")
