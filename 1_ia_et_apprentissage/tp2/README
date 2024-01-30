@@ -1,8 +1,14 @@
-The file "tp1.py" is the only program to execute.
+!!!
+Je n'ai pas fait la dernière question (avec la silhouette) (parceque je procrastine, my bad)
+!!!
+
+
+The file "tp2.py" is the only program to execute.
 
 It contains some global values that allow comportement changements:
 
 K
 DATAS_SRC #to switch between IRIS and RANDOM datas
-WITH_GRAPH #"True" to execute the algo one time, then show the results. "False" (always "iris" datas) to find the K offering the best purity of the clusters, between 1 and K
+WITH_TESTS #"True" to find the K offering the best purity of the clusters, between 1 and K
+WITH_GRAPH #"True" to execute the algo one time, then show the results
 
