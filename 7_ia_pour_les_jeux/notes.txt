@@ -1,0 +1,4 @@
+problèmes: dans des arbres (pas des matrices)
+
+osef de l'interface(donc dans le terminal ?)
+
