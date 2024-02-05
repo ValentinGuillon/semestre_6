@@ -14,6 +14,9 @@ ALLOW_PRINT_DEBUG = False
 SHOW_CENTER_INIT_POS = False
 
 
+GLOBALES = {"K": K, "DATAS_SRC": DATAS_SRC, "WITH_TESTS": WITH_TESTS, "WITH_GRAPH": WITH_GRAPH, "DIST_METHOD": DIST_METHOD, "MINKOWSKI_VALUE": MINKOWSKI_VALUE, "ALLOW_PRINT_DEBUG": ALLOW_PRINT_DEBUG, "SHOW_CENTER_INIT_POS": SHOW_CENTER_INIT_POS}
+
+
 
 #describe a point with any number of coordinates, associate to a cluster, and an optional group (to calculate cluster's purity)
 class Point:
@@ -21,7 +24,7 @@ class Point:
 class Point:
     def __init__(self, coords: list[float], group: any = 0):
         self.coords = coords
-        self.cluster = -1 #is's cluster this point is attached
+        self.cluster = -1 #it's the cluster this point is attached to
 
         self.group = group
 
@@ -95,32 +98,17 @@ class Point:
         return dist
         
 
-# #Coordinates set associate with a ummutable group, and a variable cluster
-# class Flower(Point):
-#     def __init__(self, group: int, coords: list[int]):
-#         super().__init__(coords)
-#         self.group = group
-#         self.cluster = 0
 
 
-#     def __str__(self):
-#         return f"group:<{self.group}>, cluster:<{self.cluster}>, <{self.coords}>"
-    
-    
-#     #return True if self.cluster has changed
-#     def update_cluster(self, new_cluster: int) -> bool:
-#         if self.cluster != new_cluster:
-#             self.cluster = new_cluster
-#             return True
-#         return False
 
-
-#Coordinates set associate with a immutable id, and a variable nb of point set to this cluster
+#Coordinates associate with a immutable id, and a variable nb of point set to this cluster
+class Cluster(Point):
+    pass
 class Cluster(Point):
     def __init__(self, id: int, coords: list[int]):
         super().__init__(coords)
         self.id = id
-        self.nb_points = 0
+        self.nb_points = 0 #datas associate to this cluster
         
     def __str__(self):
         res = f"id:<{self.id}>, points:<{self.nb_points}>, <["
@@ -130,10 +118,11 @@ class Cluster(Point):
             
         return res
     
-    # return the average of the distance between all possible data, set to this cluster
+    # SSEC, similarity intra-cluster
+    # return the sum of the distance between all datas set to this cluster
+    # ex: for 4 points [A, B, C, D], return d(A, B) + d(A, C) + d(A, D) + d(B, C) + d(B, D) + d(C, D)
     def similarity_intra(self, datas: list[Point]) -> float:
         cluster_points = [point for point in datas if point.cluster == self.id]
-
         total = 0
 
         for i, p1 in enumerate(cluster_points[0: -1]):
@@ -142,19 +131,15 @@ class Cluster(Point):
         
         return total
 
-
-
-
-
-
-
-def SSE(clusters: list[Cluster], datas: list[Point]) -> float:
-    res = 0.0
-    for cluster in clusters:
-        ssec = cluster.similarity_intra(datas)
-        res += ssec
-    
-    return res
+    @staticmethod
+    # similarity global, sum of SSEC of each clusters
+    def similarity_global(clusters: list[Cluster], datas: list[Point]) -> float:
+        res = 0.0
+        for cluster in clusters:
+            ssec = cluster.similarity_intra(datas)
+            res += ssec
+        
+        return res
 
 
 
@@ -189,6 +174,8 @@ def extract_datas(file_datas: str, file_groups: str = "") -> dict:
 
     return datas
         
+
+
 
 def generate_datas() -> dict:
     #coded by ARA (except: to_ret =...)
@@ -226,12 +213,11 @@ def generate_datas() -> dict:
 
 
 
-
 def create_centers(nb, datas: list[Point]) -> list[Cluster]:
     centers: list[Point] = []
 
-    # choose randomly an existing point
     for i in range(nb):
+        # choose randomly an existing point from datas
         index = np.random.randint(0, len(datas))
         copied_coords = datas[index].coords.copy()
         center = Cluster(i+1, copied_coords)
@@ -265,6 +251,7 @@ def assign_datas_to_clusters(datas: list[Point], clusters: list[Cluster]) -> boo
             a_data_changed_of_cluster = temp
     
     return a_data_changed_of_cluster
+
 
 
 
@@ -317,7 +304,6 @@ def cluster_purity(cluster_id: int, cluster_size: int, datas: list[Point]) -> fl
 
 
 
-
 def global_purity(clusters: list[Cluster], datas: list[Point]) -> float:
     purity = 0
 
@@ -332,20 +318,6 @@ def global_purity(clusters: list[Cluster], datas: list[Point]) -> float:
 
 
 
-
-
-def algo(clusters: list[Cluster], datas: list[Point]):
-    loop = 0
-    while True:
-        loop += 1
-
-        a_data_changed_of_cluster = assign_datas_to_clusters(datas, clusters)
-        update_clusters_coords(datas, clusters)
-
-        if not a_data_changed_of_cluster:
-            break
-
-    
 def found_better_k(datas: list[Point], k_max: int):
     nb_tests = 10
     purities = {}
@@ -363,7 +335,7 @@ def found_better_k(datas: list[Point], k_max: int):
             clusters = create_centers(i, datas)
             algo(clusters, datas)
             purity = global_purity(clusters, datas)
-            sse = SSE(clusters, datas)
+            sse = Cluster.similarity_global(clusters, datas)
             average_purity += purity
             average_sse += sse
             if ALLOW_PRINT_DEBUG:
@@ -396,6 +368,23 @@ def found_better_k(datas: list[Point], k_max: int):
 
 
 
+def algo(clusters: list[Cluster], datas: list[Point]):
+    loop = 0
+    while True:
+        loop += 1
+
+        a_data_changed_of_cluster = assign_datas_to_clusters(datas, clusters)
+        update_clusters_coords(datas, clusters)
+
+        if not a_data_changed_of_cluster:
+            break
+
+
+
+
+
+
+
 
 
 
@@ -403,26 +392,24 @@ def found_better_k(datas: list[Point], k_max: int):
 
 
 def main():
-    print("The status of the globals are the following:")
-    print("K =", K)
-    print("DATAS_SRC =", DATAS_SRC)
-    print("WITH_GRAPH =", WITH_GRAPH)
-    print("DIST_METHOD =", DIST_METHOD)
-    print("MINKOWSKI_VALUE =", MINKOWSKI_VALUE)
-    print()
-    print("ALLOW_PRINT_DEBUG =", ALLOW_PRINT_DEBUG)
-    print("SHOW_CENTER_INIT_POS =", SHOW_CENTER_INIT_POS)
-    
-    input("\nPress Enter to proceed...")
+    # Some infos for the user before starting
+    print("The status of the globals are the following:\n")
+    for name, glob in GLOBALES.items():
+        print(f'{name}:\n  {glob}')
+    input("\nPress Enter to proceed (may take some time)\n...")
     
 
-
+    # Get datas
     datas:list[Point] = []
     if DATAS_SRC == "iris":
         datas = extract_datas("iris_data.csv", "iris_label.csv")
     elif DATAS_SRC == "random":
         datas = generate_datas()
 
+
+    #ALGO
+
+    # find the better K
     if WITH_TESTS:
         better_k = found_better_k(datas, K)
         print(f"Better nb of clusters (greater purity): {better_k}")
@@ -431,10 +418,10 @@ def main():
         return
 
 
-    #WITH GRAPH (algo is running only one time)
+    # Execute then show the graph (algo is running only one time)
     centers:list[Cluster] = create_centers(K, datas)
 
-    # clusters' center at the start
+    # show clusters' center first position
     if SHOW_CENTER_INIT_POS:
         plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="black", s=100, label="Center (init)")
         plt.scatter([point.coords[0] for point in centers], [point.coords[1] for point in centers], color="yellow", s=50)
@@ -459,14 +446,13 @@ def main():
             datas_sorted_by_cluster[cluster_id].append(point)
 
 
-    print("\nExternal color: cluster\nInternal color: flower group\n!!The graph is only a REPRESENTATION. It may be weird for datas with more than 2 coordinates.")
-           
+    print("\nExternal color: cluster\nInternal color: flower group\n!!The graph is only a point of view of the datas.\nIt may be weird for datas with more than 2 coordinates.")
+ 
 
     colors = ["red", "green", "blue", "yellow", "pink", "orange", "purple", "beige", "brown", "gray"]
     i = 0
-    
     #datas
-    for key, points in datas_sorted_by_cluster.items():
+    for _key, points in datas_sorted_by_cluster.items():
         plt.scatter([point.coords[0] for point in points], [point.coords[1] for point in points], color=colors[i])
         i += 1
 
